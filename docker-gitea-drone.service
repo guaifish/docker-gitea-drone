@@ -1,0 +1,23 @@
+# /etc/systemd/system/docker-gitea.service
+[Unit]
+Description=docker-gitea-drone
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+
+WorkingDirectory=/hone/git/docker-gitea-drone/
+
+# Remove old containers, images and volumes
+ExecStartPre=/hone/git/docker-gitea-drone/docker-compose down -v
+ExecStartPre=/hone/git/docker-gitea-drone/docker-compose rm -v
+
+# Compose up
+ExecStart=/hone/git/docker-gitea-drone/docker-compose up
+
+# Compose down, remove containers and volumes
+ExecStop=/hone/git/docker-gitea-drone/docker-compose down -v
+
+[Install]
+WantedBy=multi-user.target

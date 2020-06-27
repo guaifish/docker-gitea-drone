@@ -1,0 +1,77 @@
+version: "3"
+
+networks:
+  gitea:
+    external: false
+
+services:
+  gitea:
+    image: gitea/gitea:latest
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - DB_TYPE=mysql
+      - DB_HOST=db:3306
+      - DB_NAME=${MYSQL_DATABASE}
+      - DB_USER=${MYSQL_USER}
+      - DB_PASSWD=${MYSQL_PASSWORD}
+    restart: always
+    networks:
+      - gitea
+    volumes:
+      - ./gitea:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - ${GITEA_HTTP_PORT}:3000
+      - ${GITEA_SSH_PORT}:22
+    depends_on:
+      - db
+
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    networks:
+      - gitea
+    volumes:
+      - ./mysql:/var/lib/mysql
+
+  drone-server:
+    image: drone/drone:1
+    environment:
+      - DRONE_GITEA_SERVER=${PROTO}://${GITEA_DOMAIN}:${GITEA_HTTP_PORT}
+      - DRONE_GITEA_CLIENT_ID=${DRONE_GITEA_CLIENT_ID}
+      - DRONE_GITEA_CLIENT_SECRET=${DRONE_GITEA_CLIENT_SECRET}
+      - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
+      - DRONE_SERVER_HOST=${DRONE_DOMAIN}:${DRONE_PORT}
+      - DRONE_SERVER_PROTO=${PROTO}
+    restart: always
+    volumes:
+      - ./drone:/data
+    networks:
+      - gitea
+    ports:
+      - ${DRONE_PORT}:80
+    depends_on:
+      - gitea
+
+  drone-runner:
+    image: drone/drone-runner-docker:1
+    environment:
+      - DRONE_RPC_PROTO=${PROTO}
+      - DRONE_RPC_HOST=${DRONE_DOMAIN}:${DRONE_PORT}
+      - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
+      - DRONE_RUNNER_CAPACITY=${DRONE_RUNNER_CAPACITY}
+      - DRONE_RUNNER_NAME=docker-drone-runner
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gitea
+    depends_on:
+      - drone-server
